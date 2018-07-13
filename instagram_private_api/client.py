@@ -90,8 +90,6 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
             - **proxy_handler**: Specify your own proxy handler
         :return:
         """
-        self.username = username
-        self.password = password
         self.auto_patch = kwargs.pop('auto_patch', False)
         self.drop_incompat_keys = kwargs.pop('drop_incompat_keys', False)
         self.api_url = kwargs.pop('api_url', None) or self.API_URL
@@ -100,6 +98,8 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
         self.logger = logger
 
         user_settings = kwargs.pop('settings', None) or {}
+        self.username = kwargs.pop('username') or user_settings.get('username')
+        self.password = kwargs.pop('password') or user_settings.get('password')
         self.uuid = (
             kwargs.pop('guid', None) or kwargs.pop('uuid', None) or
             user_settings.get('uuid') or self.generate_uuid(False))
