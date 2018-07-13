@@ -30,7 +30,7 @@ setup(
     author='ping',
     author_email='lastmodified@gmail.com',
     license='MIT',
-    url='https://github.com/ping/instagram_private_api/tree/master',
+    url='https://github.com/skayerok/instagram_private_api/tree/master',
     install_requires=[],
     test_requires=test_reqs,
     keywords='instagram private api',
