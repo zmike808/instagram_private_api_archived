@@ -45,7 +45,7 @@ from .endpoints import (
     CollectionsEndpointsMixin, HighlightsEndpointsMixin,
     IGTVEndpointsMixin,
     ClientDeprecationWarning, ClientPendingDeprecationWarning,
-    ClientExperimentalWarning
+    ClientExperimentalWarning, ChallengeEndpointsMixin
 )
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
              FriendshipsEndpointsMixin, LiveEndpointsMixin, MediaEndpointsMixin,
              MiscEndpointsMixin, LocationsEndpointsMixin, TagsEndpointsMixin,
              UsersEndpointsMixin, UploadEndpointsMixin, UsertagsEndpointsMixin,
-             CollectionsEndpointsMixin, HighlightsEndpointsMixin,
+             CollectionsEndpointsMixin, HighlightsEndpointsMixin, ChallengeEndpointsMixin,
              IGTVEndpointsMixin, object):
     """Main API client class for the private app api."""
 
