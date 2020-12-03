@@ -65,13 +65,13 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
              IGTVEndpointsMixin, object):
     """Main API client class for the private app api."""
 
-    API_URL = 'https://i.instagram.com/api/{version!s}/'
+    APIURL = 'https://i.instagram.com/api/{version!s}/'
 
     USER_AGENT = Constants.USER_AGENT
     IG_SIG_KEY = Constants.IG_SIG_KEY
-    IG_CAPABILITIES = Constants.IG_CAPABILITIES
+    # IG_CAPABILITIES = Constants.IG_CAPABILITIES
     SIG_KEY_VERSION = Constants.SIG_KEY_VERSION
-    APPLICATION_ID = Constants.APPLICATION_ID
+    # APPLICATION_ID = Constants.APPLICATION_ID
 
     def __init__(self, username=None, password=None, **kwargs):
         """
@@ -94,7 +94,7 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
         """
         self.auto_patch = kwargs.pop('auto_patch', False)
         self.drop_incompat_keys = kwargs.pop('drop_incompat_keys', False)
-        self.api_url = kwargs.pop('api_url', None) or self.API_URL
+        self.api_url = kwargs.pop('api_url', None) or APIURL
         self.timeout = kwargs.pop('timeout', 15)
         self.on_login = kwargs.pop('on_login', None)
         self.logger = logger
@@ -111,11 +111,11 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
             user_settings.get('uuid') or self.generate_uuid_new())
         self.device_id = (
             kwargs.pop('device_id', None) or user_settings.get('device_id') or
-            self.generate_device_id_new())
+            self.generate_deviceid())
         # application session ID
         self.session_id = (
             kwargs.pop('session_id', None) or user_settings.get('session_id') or
-            self.generate_uuid_new())
+            self.generate_uuid())
         self.signature_key = (
             kwargs.pop('signature_key', None) or user_settings.get('signature_key') or
             self.IG_SIG_KEY)
@@ -124,10 +124,10 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
             self.SIG_KEY_VERSION)
         self.ig_capabilities = (
             kwargs.pop('ig_capabilities', None) or user_settings.get('ig_capabilities') or
-            self.IG_CAPABILITIES)
+            Constants.IG_CAPABILITIES)
         self.application_id = (
             kwargs.pop('application_id', None) or user_settings.get('application_id') or
-            self.APPLICATION_ID)
+            Constants.APPLICATION_ID)
 
         # to maintain backward compat for user_agent kwarg
         custom_ua = kwargs.pop('user_agent', '') or user_settings.get('user_agent')
@@ -237,8 +237,8 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
         #             self.request_code()
         #         if not self.mode and not self.code:
         #             self.login()
-
-        self.logger.debug('USERAGENT: {0!s}'.format(self.user_agent))
+        print('vars for init,', vars())
+        self.logger.error('USERAGENT: {0!s}'.format(self.user_agent))
         super(Client, self).__init__()
 
     def generate_device_id_new(self) -> str:
@@ -357,7 +357,7 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
         now = int(time.time())
         eternity = now + 100 * 365 * 24 * 60 * 60   # future date for non-expiring cookies
         if not domain:
-            domain = compat_urllib_parse_urlparse(self.API_URL).netloc
+            domain = compat_urllib_parse_urlparse(self.api_url).netloc
 
         for cookie in sorted(
                 self.cookie_jar, key=lambda c: c.expires or eternity, reverse=True):
@@ -382,10 +382,22 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
         """The client's current csrf token"""
         return self.get_cookie_value('csrftoken')
 
-    @property
-    def mid(self):
-        """The client's current mid value"""
-        return self.get_cookie_value('mid')
+        # {
+        #     'User-Agent': self.user_agent,
+        #     'Connection': 'close',
+        #     'Accept': '*/*',
+        #     'Accept-Language': 'en-US',
+        #     'Accept-Encoding': 'gzip, deflate',
+        #     'X-IG-Capabilities': self.ig_capabilities,
+        #     'X-IG-Connection-Type': 'WIFI',
+        #     'X-IG-Connection-Speed': '{0:d}kbps'.format(random.randint(1000, 5000)),
+            # 'X-IG-App-ID': self.application_id,
+        #     'X-IG-Bandwidth-Speed-KBPS': '-1.000',
+        #     'X-IG-Bandwidth-TotalBytes-B': '0',
+        #     'X-IG-Bandwidth-TotalTime-MS': '0',
+        #     'X-FB-HTTP-Engine': Constants.FB_HTTP_ENGINE,
+        # }
+
 
     @property
     def token(self):
@@ -436,61 +448,7 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
         """The client's cookiejar instance."""
         return self.opener.cookie_jar
 
-    @property
-    def default_headers(self):
-        return \
-            {
-                "X-IG-App-Locale": "en_US",
-                "X-IG-Device-Locale": "en_US",
-                "X-IG-Mapped-Locale": "en_US",
-                "X-Pigeon-Session-Id": self.generate_uuid(),
-                "X-Pigeon-Rawclienttime": str(round(time.time() * 1000) / 1000),
-                "X-IG-Connection-Speed": "-1kbps",
-                "X-IG-Bandwidth-Speed-KBPS": str(random.randint(2900000, 10000000) / 1000),
-                "X-IG-Bandwidth-TotalBytes-B": str(random.randint(5000000, 90000000)),
-                "X-IG-Bandwidth-TotalTime-MS": str(random.randint(5000, 15000)),
-                # "X-IG-EU-DC-ENABLED": "true", # <- type of DC? Eu is euro, but we use US
-                # "X-IG-Prefetch-Request": "foreground",  # OLD from instabot
-                "X-Bloks-Version-Id": hashlib.sha256(
-                    json.dumps(Constants.DEVICE_SETTINGS).encode()
-                ).hexdigest(),
-                "X-Bloks-Is-Layout-RTL": "false",
-                # "X-Bloks-Enable-RenderCore": "false",  # OLD from instabot
-                # "X-IG-WWW-Claim": "0",  # OLD from instabot
-                "X-MID": self.mid,  # "XkAyKQABAAHizpYQvHzNeBo4E9nm" in instabot
-                "X-IG-Device-ID": self.uuid,
-                "X-IG-Android-ID": self.device_id,
-                "X-IG-Connection-Type": "WIFI",
-                "X-IG-Capabilities": "3brTvwM=",  # "3brTvwE=" in instabot
-                "X-IG-App-ID": "567067343352427",
-                "X-IG-App-Startup-Country": "US",
-                "User-Agent": self.user_agent,
-                "Accept-Language": "en-US",
-                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "Accept-Encoding": "gzip, deflate",
-                "Host": "i.instagram.com",
-                "X-FB-HTTP-Engine": "Liger",
-                "Connection": "keep-alive",  # "close" in instabot
-                "Pragma": "no-cache",
-                "Cache-Control": "no-cache",
-            }
-
-        # {
-        #     'User-Agent': self.user_agent,
-        #     'Connection': 'close',
-        #     'Accept': '*/*',
-        #     'Accept-Language': 'en-US',
-        #     'Accept-Encoding': 'gzip, deflate',
-        #     'X-IG-Capabilities': self.ig_capabilities,
-        #     'X-IG-Connection-Type': 'WIFI',
-        #     'X-IG-Connection-Speed': '{0:d}kbps'.format(random.randint(1000, 5000)),
-        #     'X-IG-App-ID': self.application_id,
-        #     'X-IG-Bandwidth-Speed-KBPS': '-1.000',
-        #     'X-IG-Bandwidth-TotalBytes-B': '0',
-        #     'X-IG-Bandwidth-TotalTime-MS': '0',
-        #     'X-FB-HTTP-Engine': Constants.FB_HTTP_ENGINE,
-        # }
-
+   
     @property
     def radio_type(self):
         """For use in certain endpoints"""
@@ -603,8 +561,8 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
 
         req = compat_urllib_request.Request(url, data, headers=headers)
         try:
-            self.logger.debug('REQUEST: {0!s} {1!s}'.format(url, req.get_method()))
-            self.logger.debug('DATA: {0!s}'.format(data))
+            self.logger.warn('REQUEST: {0!s} {1!s}'.format(url, req.get_method()))
+            self.logger.warn('DATA: {0!s}'.format(data))
             response = self.opener.open(req, timeout=self.timeout)
         except compat_urllib_error.HTTPError as e:
             error_response = self._read_response(e)
@@ -637,3 +595,47 @@ class Client(AccountsEndpointsMixin, DiscoverEndpointsMixin, FeedEndpointsMixin,
                 error_response=json.dumps(json_response))
 
         return json_response
+
+
+    @property
+    def mid(self):
+        """The client's current mid value"""
+        return self.get_cookie_value('mid')
+    @property
+    def default_headers(self):
+        heds = {
+                "X-IG-App-Locale": "en_US",
+                "X-IG-Device-Locale": "en_US",
+                "X-IG-Mapped-Locale": "en_US",
+                "X-Pigeon-Session-Id": self.generate_uuid(),
+                "X-Pigeon-Rawclienttime": str(round(time.time() * 1000) / 1000),
+                "X-IG-Connection-Speed": "-1kbps",
+                "X-IG-Bandwidth-Speed-KBPS": str(random.randint(2900000, 10000000) / 1000),
+                "X-IG-Bandwidth-TotalBytes-B": str(random.randint(5000000, 90000000)),
+                "X-IG-Bandwidth-TotalTime-MS": str(random.randint(5000, 15000)),
+                # "X-IG-EU-DC-ENABLED": "true", # <- type of DC? Eu is euro, but we use US
+                # "X-IG-Prefetch-Request": "foreground",  # OLD from instabot
+                "X-Bloks-Version-Id": Constants.BLOKS_VERSION_ID,
+                "X-Bloks-Is-Layout-RTL": "false",
+                # "X-Bloks-Enable-RenderCore": "false",  # OLD from instabot
+                # "X-IG-WWW-Claim": "0",  # OLD from instabot
+                "X-IG-Device-ID": self.uuid,
+                "X-IG-Android-ID": self.device_id,
+                "X-IG-Connection-Type": "WIFI",
+                "X-IG-Capabilities": "3brTvwM=",  # "3brTvwE=" in instabot
+                "X-IG-App-ID": "567067343352427",
+                "X-IG-App-Startup-Country": "US",
+                "User-Agent": self.user_agent,
+                "Accept-Language": "en-US",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "Accept-Encoding": "gzip, deflate",
+                "Host": "i.instagram.com",
+                "X-FB-HTTP-Engine": "Liger",
+                "Connection": "keep-alive",  # "close" in instabot
+                "Pragma": "no-cache",
+                "Cache-Control": "no-cache",
+            }
+        if self.mid:
+            heds['X-MID'] = self.mid
+        return heds
+        # "": self.mid,  # "XkAyKQABAAHizpYQvHzNeBo4E9nm" in instabot
