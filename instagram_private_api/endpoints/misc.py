@@ -1,8 +1,9 @@
+import json
 import warnings
 
 from .common import ClientDeprecationWarning
-from ..constants import Constants
 from ..compatpatch import ClientCompatPatch
+from ..constants import Constants
 
 
 class MiscEndpointsMixin(object):
@@ -13,25 +14,25 @@ class MiscEndpointsMixin(object):
         if prelogin:
             params = {
                 'id': self.generate_uuid(),
-                'experiments': Constants.LOGIN_EXPERIMENTS
+                'experiments': Constants.LOGIN_EXPERIMENTS,
             }
         else:
             params = {
                 'id': self.authenticated_user_id,
-                'experiments': Constants.EXPERIMENTS
+                'experiments': Constants.EXPERIMENTS,
             }
             params.update(self.authenticated_params)
         return self._call_api('qe/sync/', params=params)
 
-    def expose(self, experiment='ig_android_profile_contextual_feed'):  # pragma: no cover
+    def expose(
+        self, experiment='ig_android_profile_contextual_feed'
+    ):  # pragma: no cover
         warnings.warn(
             'This endpoint is believed to be obsolete. Do not use.',
-            ClientDeprecationWarning)
+            ClientDeprecationWarning,
+        )
 
-        params = {
-            'id': self.authenticated_user_id,
-            'experiment': experiment
-        }
+        params = {'id': self.authenticated_user_id, 'experiment': experiment}
         params.update(self.authenticated_params)
         return self._call_api('qe/expose/', params=params)
 
@@ -52,14 +53,33 @@ class MiscEndpointsMixin(object):
             '_uuid': self.uuid,
             'device_id': self.device_id,
             '_csrftoken': self.csrftoken,
-            'uuid': self.generate_uuid(return_hex=True)
+            'uuid': self.generate_uuid(return_hex=True),
         }
         params.update(kwargs)
         return self._call_api('megaphone/log/', params=params, unsigned=True)
+        
+    def mark_dms_read(self, thread_id, thread_item_id):
+        """
+        Mark DMs as read
+
+        :param thread_id:
+        :param thread_item_id:
+        """
+        endpoint = 'direct_v2/threads/{thread_id!s}/items/{thread_item_id!s}/seen/'.format(**{'thread_id': thread_id, 'thread_item_id': thread_item_id})
+
+        params = {
+            'use_unified_inbox': True,
+            'action': 'mark_seen',
+            '_csrftoken': self.csrftoken,
+            '_uuid': self.uuid
+        }
+        return self._call_api(endpoint, params=params, unsigned=True)
 
     def ranked_recipients(self):
         """Get ranked recipients"""
-        res = self._call_api('direct_v2/ranked_recipients/', query={'show_threads': 'true'})
+        res = self._call_api(
+            'direct_v2/ranked_recipients/', query={'show_threads': 'true'}
+        )
         return res
 
     def recent_recipients(self):
@@ -80,11 +100,89 @@ class MiscEndpointsMixin(object):
         This returns the items in the 'You' tab.
         """
         return self._call_api(
-            'news/inbox/', query={'limited_activity': 'true', 'show_su': 'true'})
+            'news/inbox/', query={'limited_activity': 'true', 'show_su': 'true'}
+        )
 
-    def direct_v2_inbox(self):
-        """Get v2 inbox"""
-        return self._call_api('direct_v2/inbox/')
+    def direct_v2_inbox(self, oldest_cursor=None):
+        """
+        Get v2 inbox
+        To retrieve the second page of the inbox, pass the oldest_cursor
+        returned by the previous direct_v2_inbox() call
+        """
+        query = {}
+        if oldest_cursor:
+            query = {
+                '__a': 1,
+                'max_id': oldest_cursor
+            }
+
+        return self._call_api('direct_v2/inbox/', query=query)
+
+    def direct_v2_pending_inbox(self):
+        """Get v2 pending inbox"""
+        return self._call_api('direct_v2/pending_inbox/')
+
+    def direct_v2_approve(self, thread_id):
+        """Approve a pending thread"""
+        return self._call_api(
+            'direct_v2/threads/{}/approve/'.format(thread_id),
+            params='')
+
+    def direct_v2_approve_all(self):
+        """Approval all pending threads"""
+        return self._call_api(
+            'direct_v2/threads/approve_all/', params='')
+
+    def direct_v2_broadcast_text(self, thread_ids, text):
+        """Broadcast text to one or more inbox v2 threads"""
+        return self._call_api('direct_v2/threads/broadcast/text/', params={
+            'thread_ids': json.dumps(thread_ids),
+            'text': text,
+        }, unsigned=True)
+
+    def direct_v2_broadcast_link(self, thread_ids, text, link_urls):
+        """Broadcast text with links to one or more inbox v2 threads"""
+        return self._call_api('direct_v2/threads/broadcast/link/', params={
+            'thread_ids': json.dumps(thread_ids),
+            'link_text': text,
+            'link_urls': json.dumps(link_urls)
+        }, unsigned=True)
+
+    def direct_v2_threads_show(self, thread_id):
+        """Retrieve a thread by its thread_id"""
+        return self._call_api(
+            'direct_v2/threads/{}/'.format(thread_id),
+            query={
+                # TODO(NW): Handle cursor
+                # 'cursor', ''
+            },
+        )
+
+    def direct_v2_threads_seen(self, thread_id, item_id):
+        """Mark a thread item as seen"""
+        return self._call_api(
+            'direct_v2/threads/{}/items/{}/seen/'.format(thread_id, item_id),
+            params=''
+        )
+
+    def direct_v2_threads_hide(self, thread_id):
+        """Remove a thread from the inbox"""
+        return self._call_api(
+            'direct_v2/threads/{}/hide/'.format(thread_id),
+            params=''
+        )
+
+    def direct_v2_thread(self, thread_id, **kwargs):
+        """
+        Get v2 thread
+
+        :param thread_id:
+        :param kwargs:
+            - **cursor**: For pagination
+        :return:
+        """
+        endpoint = 'direct_v2/threads/{thread_id!s}/'.format(**{'thread_id': thread_id})
+        return self._call_api(endpoint, query=kwargs)
 
     def oembed(self, url, **kwargs):
         """
@@ -111,8 +209,8 @@ class MiscEndpointsMixin(object):
         """
         warnings.warn('This endpoint is not tested fully.', UserWarning)
         res = self._call_api(
-            'language/translate/',
-            query={'id': object_id, 'type': object_type})
+            'language/translate/', query={'id': object_id, 'type': object_type}
+        )
         return res
 
     def bulk_translate(self, comment_ids):
@@ -137,7 +235,12 @@ class MiscEndpointsMixin(object):
         """
         res = self._call_api(
             'fbsearch/topsearch/',
-            query={'context': 'blended', 'ranked_token': self.rank_token, 'query': query})
+            query={
+                'context': 'blended',
+                'ranked_token': self.rank_token,
+                'query': query,
+            },
+        )
         if self.auto_patch and res.get('users', []):
             [ClientCompatPatch.list_user(u['user']) for u in res['users']]
         return res
@@ -155,11 +258,11 @@ class MiscEndpointsMixin(object):
         """
         if sticker_type not in ['static_stickers']:
             raise ValueError('Invalid sticker_type: {0!s}'.format(sticker_type))
-        if location and not ('lat' in location and 'lng' in location and 'horizontalAccuracy' in location):
+        if location and not (
+            'lat' in location and 'lng' in location and 'horizontalAccuracy' in location
+        ):
             raise ValueError('Invalid location')
-        params = {
-            'type': sticker_type
-        }
+        params = {'type': sticker_type}
         if location:
             params['lat'] = location['lat']
             params['lng'] = location['lng']

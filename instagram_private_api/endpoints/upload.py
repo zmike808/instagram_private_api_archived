@@ -3,28 +3,21 @@ import time
 from random import randint
 import re
 import warnings
-from urllib.parse import urlparse
-from os.path import splitext
-import uuid
 
-from ..compat import (
-    compat_urllib_error, compat_urllib_request,
-    compat_http_client
-)
+from ..compat import compat_urllib_error, compat_urllib_request, compat_http_client
 from ..errors import ErrorHandler, ClientError, ClientConnectionError
 from ..http import MultipartFormDataEncoder
-from ..utils import (
-    max_chunk_count_generator, max_chunk_size_generator,
-    get_file_size
-)
+from ..utils import max_chunk_count_generator, max_chunk_size_generator, get_file_size
 from ..compatpatch import ClientCompatPatch
 from .common import ClientDeprecationWarning
 from .common import MediaTypes
 from socket import timeout, error as SocketError
 from ssl import SSLError
+
 try:
-    ConnectionError = ConnectionError       # pylint: disable=redefined-builtin
+    ConnectionError = ConnectionError  # pylint: disable=redefined-builtin
 except NameError:  # Python 2:
+
     class ConnectionError(Exception):
         pass
 
@@ -41,7 +34,7 @@ class MediaRatios(object):
     __device_ratios = [(3, 4), (2, 3), (5, 8), (3, 5), (9, 16), (10, 16), (40, 71)]
     __aspect_ratios = [1.0 * x[0] / x[1] for x in __device_ratios]
 
-    #: Acceptable min, max values of with/height ratios for a story upload
+    #: Acceptable min, max values of with/height ratios for a story or a IGTV upload
     reel = min(__aspect_ratios), max(__aspect_ratios)
 
 
@@ -51,7 +44,7 @@ class UploadEndpointsMixin(object):
     EXTERNAL_LOC_SOURCES = {
         'foursquare': 'foursquare_v2_id',
         'facebook_places': 'facebook_places_id',
-        'facebook_events': 'facebook_events_id'
+        'facebook_events': 'facebook_events_id',
     }
 
     def _validate_location(self, location):
@@ -66,11 +59,17 @@ class UploadEndpointsMixin(object):
             raise ValueError('Location must be a dict.')
 
         # patch location object returned from location_search
-        if 'external_source' not in location and 'external_id_source' in location and 'external_id' in location:
+        if (
+            'external_source' not in location
+            and 'external_id_source' in location
+            and 'external_id' in location
+        ):
             external_source = location['external_id_source']
             location['external_source'] = external_source
             if external_source in self.EXTERNAL_LOC_SOURCES:
-                location[self.EXTERNAL_LOC_SOURCES[external_source]] = location['external_id']
+                location[self.EXTERNAL_LOC_SOURCES[external_source]] = location[
+                    'external_id'
+                ]
         for k in location_keys:
             if not location.get(k):
                 raise ValueError('Location dict must contain "{0!s}".'.format(k))
@@ -103,7 +102,7 @@ class UploadEndpointsMixin(object):
         warnings.warn(
             'Client.standard_ratios() is deprecated. '
             'Please use MediaRatios.standard instead.',
-            ClientDeprecationWarning
+            ClientDeprecationWarning,
         )
         return MediaRatios.standard
 
@@ -118,7 +117,7 @@ class UploadEndpointsMixin(object):
         warnings.warn(
             'Client.reel_ratios() is deprecated. '
             'Please use MediaRatios.reel instead.',
-            ClientDeprecationWarning
+            ClientDeprecationWarning,
         )
         return MediaRatios.reel
 
@@ -148,8 +147,15 @@ class UploadEndpointsMixin(object):
         this_ratio = 1.0 * width / height
         return min_ratio <= this_ratio <= max_ratio
 
-    def configure(self, upload_id, size, caption='', location=None,
-                  disable_comments=False, is_sidecar=False):
+    def configure(
+        self,
+        upload_id,
+        size,
+        caption='',
+        location=None,
+        disable_comments=False,
+        is_sidecar=False,
+    ):
         """
         Finalises a photo upload. This should not be called directly.
         Use :meth:`post_photo` instead.
@@ -177,17 +183,14 @@ class UploadEndpointsMixin(object):
                 'manufacturer': self.phone_manufacturer,
                 'model': self.phone_device,
                 'android_version': self.android_version,
-                'android_release': self.android_release
+                'android_release': self.android_release,
             },
             'edits': {
                 'crop_original_size': [width * 1.0, height * 1.0],
                 'crop_center': [0.0, -0.0],
-                'crop_zoom': 1.0
+                'crop_zoom': 1.0,
             },
-            'extra': {
-                'source_width': width,
-                'source_height': height,
-            }
+            'extra': {'source_width': width, 'source_height': height},
         }
         if location:
             media_loc = self._validate_location(location)
@@ -209,11 +212,22 @@ class UploadEndpointsMixin(object):
         params.update(self.authenticated_params)
         res = self._call_api(endpoint, params=params)
         if self.auto_patch and res.get('media'):
-            ClientCompatPatch.media(res.get('media'), drop_incompat_keys=self.drop_incompat_keys)
+            ClientCompatPatch.media(
+                res.get('media'), drop_incompat_keys=self.drop_incompat_keys
+            )
         return res
 
-    def configure_video(self, upload_id, size, duration, thumbnail_data, caption='',
-                        location=None, disable_comments=False, is_sidecar=False):
+    def configure_video(
+        self,
+        upload_id,
+        size,
+        duration,
+        thumbnail_data,
+        caption='',
+        location=None,
+        disable_comments=False,
+        is_sidecar=False,
+    ):
         """
         Finalises a video upload. This should not be called directly.
         Use :meth:`post_video` instead.
@@ -233,8 +247,15 @@ class UploadEndpointsMixin(object):
             raise ValueError('Incompatible aspect ratio.')
 
         # upload video thumbnail
-        self.post_photo(thumbnail_data, size, caption, upload_id, location=location,
-                        disable_comments=disable_comments, is_sidecar=is_sidecar)
+        self.post_photo(
+            thumbnail_data,
+            size,
+            caption,
+            upload_id,
+            location=location,
+            disable_comments=disable_comments,
+            is_sidecar=is_sidecar,
+        )
 
         width, height = size
         params = {
@@ -249,18 +270,15 @@ class UploadEndpointsMixin(object):
             'clips': {
                 'length': duration * 1.0,
                 'source_type': '3',
-                'camera_position': 'back'
+                'camera_position': 'back',
             },
             'device': {
                 'manufacturer': self.phone_manufacturer,
                 'model': self.phone_device,
                 'android_version': self.android_version,
-                'android_release': self.android_release
+                'android_release': self.android_release,
             },
-            'extra': {
-                'source_width': width,
-                'source_height': height
-            }
+            'extra': {'source_width': width, 'source_height': height},
         }
         if disable_comments:
             params['disable_comments'] = '1'
@@ -282,10 +300,12 @@ class UploadEndpointsMixin(object):
         params.update(self.authenticated_params)
         res = self._call_api('media/configure/', params=params, query={'video': 1})
         if res.get('media') and self.auto_patch:
-            ClientCompatPatch.media(res.get('media'), drop_incompat_keys=self.drop_incompat_keys)
+            ClientCompatPatch.media(
+                res.get('media'), drop_incompat_keys=self.drop_incompat_keys
+            )
         return res
 
-    def configure_to_reel(self, upload_id, size):
+    def configure_to_reel(self, upload_id, size, **kwargs):
         """
         Finalises a photo story upload. This should not be called directly.
         Use :meth:`post_photo_story` instead.
@@ -299,33 +319,94 @@ class UploadEndpointsMixin(object):
 
         endpoint = 'media/configure_to_story/'
         width, height = size
+        
+        reel_caption = kwargs.pop('reel_caption', '').replace(' ', '+')+'+'
+        tag_name = kwargs.pop('tag_name', None)
+        tag_x = kwargs.pop('tag_x', 0.5)
+        tag_y = kwargs.pop('tag_y', 0.75)
+        tag_width = kwargs.pop('tag_width', 0.8)
+        tag_height = kwargs.pop('tag_height', 0.1)
+        
+        mention_id = kwargs.pop('mention_id', None)
+        mention_x = kwargs.pop('mention_x', 0.5)
+        mention_y = kwargs.pop('mention_y', 0.75)
+        mention_width = kwargs.pop('mention_width', 0.8)
+        mention_height = kwargs.pop('mention_height', 0.1)
+        
+        media_id = kwargs.pop('media_id', None)
+        media_x = kwargs.pop('media_x', 0.5)
+        media_y = kwargs.pop('media_y', 0.75)
+        media_width = kwargs.pop('media_width', 0.8)
+        media_height = kwargs.pop('media_height', 0.5)
+        
+        #print("reel_caption={} tag_name={} mention_id={} ".format(reel_caption, tag_name, mention_id))
+        story_hashtags = json.dumps(
+        [{
+            'tag_name'         : tag_name, # Hashtag WITHOUT the '#'! NOTE: This hashtag MUST appear in the caption.
+            'x'                : tag_x, # Range: 0.0 - 1.0. Note that x = 0.5 and y = 0.5 is center of screen.
+            'y'                : tag_y, # Also note that X/Y is setting the position of the CENTER of the clickable area.
+            'width'            : tag_width, # Clickable area size, as percentage of image size: 0.0 - 1.0
+            'height'           : tag_height,
+            'rotation'         : 0.0,
+            'is_sticker'       : True # Don't change this value.
+        }]);
+        reel_mentions = json.dumps(
+        [{
+            'user_id'          : mention_id,
+            'x'                : mention_x, # Range: 0.0 - 1.0. Note that x = 0.5 and y = 0.5 is center of screen.
+            'y'                : mention_y, # Also note that X/Y is setting the position of the CENTER of the clickable area.
+            'width'            : mention_width, # Clickable area size, as percentage of image size: 0.0 - 1.0
+            'height'           : mention_height,
+            'rotation'         : 0.0,
+            'is_sticker'       : True
+        }]);
+        attached_media = json.dumps(
+        [{
+            'media_id'         : media_id,
+            'x'                : media_x, # Range: 0.0 - 1.0. Note that x = 0.5 and y = 0.5 is center of screen.
+            'y'                : media_y, # Also note that X/Y is setting the position of the CENTER of the clickable area.
+            'width'            : media_width, # Clickable area size, as percentage of image size: 0.0 - 1.0
+            'height'           : media_height,
+            'rotation'         : 0.0,
+            'is_sticker'       : True
+        }]);
+            
         params = {
-            'source_type': '4',
+            'caption': reel_caption,
+            'mas_opt_in': 'NOT_PROMPTED',            
+            'source_type': '3',
             'upload_id': upload_id,
             'story_media_creation_date': str(int(time.time()) - randint(11, 20)),
             'client_shared_at': str(int(time.time()) - randint(3, 10)),
             'client_timestamp': str(int(time.time())),
-            'configure_mode': 1,      # 1 - REEL_SHARE, 2 - DIRECT_STORY_SHARE
+            'configure_mode': 1,  # 1 - REEL_SHARE, 2 - DIRECT_STORY_SHARE
             'device': {
                 'manufacturer': self.phone_manufacturer,
                 'model': self.phone_device,
                 'android_version': self.android_version,
-                'android_release': self.android_release
+                'android_release': self.android_release,
             },
             'edits': {
                 'crop_original_size': [width * 1.0, height * 1.0],
                 'crop_center': [0.0, 0.0],
-                'crop_zoom': 1.3333334
+                'crop_zoom': 1.3333334,
             },
-            'extra': {
-                'source_width': width,
-                'source_height': height,
-            }
+            'extra': {'source_width': width, 'source_height': height},
         }
+        
+        if tag_name is not None:
+            params['story_hashtags'] = story_hashtags
+        if mention_id is not None:
+            params['reel_mentions'] = reel_mentions
+        if media_id is not None:
+            params['attached_media'] = attached_media
+
         params.update(self.authenticated_params)
         res = self._call_api(endpoint, params=params)
         if self.auto_patch and res.get('media'):
-            ClientCompatPatch.media(res.get('media'), drop_incompat_keys=self.drop_incompat_keys)
+            ClientCompatPatch.media(
+                res.get('media'), drop_incompat_keys=self.drop_incompat_keys
+            )
         return res
 
     def configure_video_to_reel(self, upload_id, size, duration, thumbnail_data):
@@ -342,7 +423,9 @@ class UploadEndpointsMixin(object):
         if not self.reel_compatible_aspect_ratio(size):
             raise ValueError('Incompatible aspect ratio.')
 
-        res = self.post_photo(thumbnail_data, size, '', upload_id=upload_id, to_reel=True)
+        res = self.post_photo(
+            thumbnail_data, size, '', upload_id=upload_id, to_reel=True
+        )
 
         width, height = size
         params = {
@@ -351,7 +434,7 @@ class UploadEndpointsMixin(object):
             'story_media_creation_date': str(int(time.time()) - randint(11, 20)),
             'client_shared_at': str(int(time.time()) - randint(3, 10)),
             'client_timestamp': str(int(time.time())),
-            'configure_mode': 1,      # 1 - REEL_SHARE, 2 - DIRECT_STORY_SHARE
+            'configure_mode': 1,  # 1 - REEL_SHARE, 2 - DIRECT_STORY_SHARE
             'poster_frame_index': 0,
             'length': duration * 1.0,
             'audio_muted': False,
@@ -360,127 +443,80 @@ class UploadEndpointsMixin(object):
             'clips': {
                 'length': duration * 1.0,
                 'source_type': '4',
-                'camera_position': 'back'
+                'camera_position': 'back',
             },
             'device': {
                 'manufacturer': self.phone_manufacturer,
                 'model': self.phone_device,
                 'android_version': self.android_version,
-                'android_release': self.android_release
+                'android_release': self.android_release,
             },
-            'extra': {
-                'source_width': width,
-                'source_height': height,
-            },
+            'extra': {'source_width': width, 'source_height': height},
         }
 
         params.update(self.authenticated_params)
-        res = self._call_api('media/configure_to_story/', params=params, query={'video': '1'})
+        res = self._call_api(
+            'media/configure_to_story/', params=params, query={'video': '1'}
+        )
         if self.auto_patch and res.get('media'):
-            ClientCompatPatch.media(res.get('media'), drop_incompat_keys=self.drop_incompat_keys)
+            ClientCompatPatch.media(
+                res.get('media'), drop_incompat_keys=self.drop_incompat_keys
+            )
         return res
 
-    def is_image(self, url):
-        image_formats = [".jpeg", ".jpg"]
-        parsed = urlparse(url)
-        root, ext = splitext(parsed.path)
-        if ext in image_formats:
-            return ext
-        return False
-
-    def upload_image(self, img, size, quality=80, caption='', location=None, disable_comments=False, story=False, **kwargs) -> bool:
+    def configure_video_to_tv(
+        self, upload_id, size, duration, thumbnail_data, title, caption
+    ):
         """
-        Upload an image and post it.
-        :param img: io.BufferedReader
+        Finalises a video IGTV upload. This should not be called directly.
+        Use :meth:`post_video_tv` instead.
+
+        :param upload_id:
         :param size: tuple of (width, height)
+        :param duration: in seconds
+        :param thumbnail_data: byte string of thumbnail photo
+        :param title:
         :param caption:
-        :param location: a dict of venue/location information, from :meth:`location_search`
-        or :meth:`location_fb_search`
-        :param disable_comments: bool to disable comments
-        :param story: bool to upload a story instead of a post
-        :return bool:
+        :return:
         """
-        is_img = self.is_image(img.name)
+        if not self.reel_compatible_aspect_ratio(size):
+            raise ValueError('Incompatible aspect ratio.')
 
-        if is_img:
-            image_props = {
-                'caption': '',
-                'edits': {
-                    'crop_center': [0.0, 0.0],
-                    'crop_original_size': size,
-                    'crop_zoom': 1.0
-                },
-                'entity_type': f'image/{is_img[1:]}',
-                'extra': {'source_height': size[1], 'source_width': size[0]},
-                'image_path': img.name,
-                'location': None,
-                'media_folder': 'Pictures',
-                'multi_sharing': '-1',
-                'scene_capture_type': '',
-                'size': size,
-                'source_type': 3,
-                'suggested_venue_position': -1,
-                'timezone_offset': str(time.localtime().tm_gmtoff),
-                'upload_id': str(time.time()).split('.')[0],
-                'x_fb_waterfall_id': str(uuid.uuid4())
-            }
+        res = self.post_photo(thumbnail_data, size, upload_id=upload_id, to_reel=True)
+        width, height = size
+        params = {
+            'media_type': '2',
+            'source_type': '4',
+            'upload_id': upload_id,
+            'poster_frame_index': 0,
+            'length': duration * 1.0,
+            'audio_muted': False,
+            'filter_type': '0',
+            'video_result': 'deprecated',
+            'title': title,
+            'caption': caption,
+            'device': {
+                'manufacturer': self.phone_manufacturer,
+                'model': self.phone_device,
+                'android_version': self.android_version,
+                'android_release': self.android_release,
+            },
+            'extra': {'source_width': width, 'source_height': height},
+        }
 
-            image_props['entity_name'] = f'{image_props["upload_id"]}_0_{randint(1000000000, 9999999999)}'
+        params.update(self.authenticated_params)
+        res = self._call_api(
+            'media/configure_to_igtv/', params=params, query={'video': '1'}
+        )
+        if self.auto_patch and res.get('media'):
+            ClientCompatPatch.media(
+                res.get('media'), drop_incompat_keys=self.drop_incompat_keys
+            )
+        return res
 
-            with open(img.name, 'rb') as f:
-                f.seek(0, 2)
-                image_props['entity_length'] = f.tell()
-
-            image_props.pop('image_path')
-
-            headers = {
-                'x-fb-photo-waterfall-id': str(image_props['x_fb_waterfall_id']),
-                'x-entity-length': str(image_props['entity_length']),
-                'x-entity-name': image_props['entity_name'],
-                'x-instagram-rupload-params': json.dumps({
-                    "upload_id": image_props['upload_id'],
-                    "media_type": 1,
-                    "retry_context": json.dumps({
-                        "num_reupload": 0,
-                        "num_step_auto_retry": 0,
-                        "num_step_manual_retry": 0
-                    }),
-                    "xsharing_user_ids": "[]",
-                    "image_compression": json.dumps({
-                        "lib_name": "moz",
-                        "lib_version": "3.1.m",
-                        "quality": "80"
-                    }),
-                }),
-                'x-entity-type': image_props['entity_type'],
-                'offset': '0',
-                'scene_capture_type': 'standard',
-                'creation_logger_session_id': str(uuid.uuid4())
-            }
-
-            endpoint = f'https://i.instagram.com/rupload_igphoto/{headers["x-entity-name"]}'
-
-            with open(img.name, 'rb') as f:
-
-                req = compat_urllib_request.Request(
-                    endpoint, data=f.read(), headers=headers
-                )
-
-                res = self.opener.open(req, timeout=self.timeout)
-                self._read_response(res)
-
-                if story:
-                    self.configure_to_reel(image_props['upload_id'], size)
-                else:
-                    self.configure(image_props['upload_id'], size, caption=caption)
-
-                return True
-
-            return False
-        else:
-            raise ValueError('Incompatible image format.')
-
-    def post_photo(self, photo_data, size, caption='', upload_id=None, to_reel=False, **kwargs):
+    def post_photo(
+        self, photo_data, size, caption='', upload_id=None, to_reel=False, **kwargs
+    ):
         """
         Upload a photo.
 
@@ -497,7 +533,7 @@ class UploadEndpointsMixin(object):
             - **disable_comments**: bool to disable comments
         :return:
         """
-        warnings.warn('This endpoint has not been fully tested.', UserWarning)
+        #warnings.warn('This endpoint has not been fully tested.', UserWarning)
 
         # if upload_id is provided, it's a thumbnail for a vid upload
         for_video = True if upload_id else False
@@ -507,9 +543,9 @@ class UploadEndpointsMixin(object):
                 raise ValueError('Incompatible aspect ratio.')
             if to_reel and not self.reel_compatible_aspect_ratio(size):
                 raise ValueError('Incompatible reel aspect ratio.')
-            if not 320 <= size[0] <= 1080:
-                # range from https://help.instagram.com/1631821640426723
-                raise ValueError('Invalid image width.')
+            # if not 320 <= size[0] <= 1080:
+            #     # range from https://help.instagram.com/1631821640426723
+            #     raise ValueError('Invalid image width.')
 
         location = kwargs.pop('location', None)
         if location:
@@ -525,7 +561,10 @@ class UploadEndpointsMixin(object):
             ('upload_id', upload_id),
             ('_uuid', self.uuid),
             ('_csrftoken', self.csrftoken),
-            ('image_compression', '{"lib_name":"jt","lib_version":"1.3.0","quality":"87"}')
+            (
+                'image_compression',
+                '{"lib_name":"jt","lib_version":"1.3.0","quality":"87"}',
+            ),
         ]
         if is_sidecar:
             fields.append(('is_sidecar', '1'))
@@ -533,8 +572,12 @@ class UploadEndpointsMixin(object):
                 fields.append(('media_type', MediaTypes.VIDEO))
 
         files = [
-            ('photo', 'pending_media_{0!s}{1!s}'.format(str(int(time.time() * 1000)), '.jpg'),
-             'application/octet-stream', photo_data)
+            (
+                'photo',
+                'pending_media_{0!s}{1!s}'.format(str(int(time.time() * 1000)), '.jpg'),
+                'application/octet-stream',
+                photo_data,
+            )
         ]
 
         content_type, body = MultipartFormDataEncoder().encode(fields, files)
@@ -551,11 +594,18 @@ class UploadEndpointsMixin(object):
             error_response = self._read_response(e)
             self.logger.debug('RESPONSE: {0:d} {1!s}'.format(e.code, error_response))
             ErrorHandler.process(e, error_response)
-        except (SSLError, timeout, SocketError,
-                compat_urllib_error.URLError,   # URLError is base of HTTPError
-                compat_http_client.HTTPException) as connection_error:
-            raise ClientConnectionError('{} {}'.format(
-                connection_error.__class__.__name__, str(connection_error)))
+        except (
+            SSLError,
+            timeout,
+            SocketError,
+            compat_urllib_error.URLError,  # URLError is base of HTTPError
+            compat_http_client.HTTPException,
+        ) as connection_error:
+            raise ClientConnectionError(
+                '{} {}'.format(
+                    connection_error.__class__.__name__, str(connection_error)
+                )
+            )
 
         post_response = self._read_response(response)
         self.logger.debug('RESPONSE: {0:d} {1!s}'.format(response.code, post_response))
@@ -569,16 +619,34 @@ class UploadEndpointsMixin(object):
         # # NOTES: Logging traffic doesn't seem to indicate any additional "configure" after upload
         # # BUT not doing a "configure" causes a video post to fail with a
         # # "Other media configure error: b'yEmZkUpAj4'" error
-        # if for_video:
-        #     logger.debug('Skip photo configure.')
-        #     return json_response
-        if to_reel:
-            return self.configure_to_reel(upload_id, size)
-        else:
-            return self.configure(upload_id, size, caption=caption, location=location,
-                                  disable_comments=disable_comments, is_sidecar=is_sidecar)
+        if for_video:
+            self.logger.debug('Skip photo configure.')
+            return json_response
 
-    def post_video(self, video_data, size, duration, thumbnail_data, caption='', to_reel=False, **kwargs):
+        if to_reel:
+            return self.configure_to_reel(upload_id, size, **kwargs)
+        else:
+            return self.configure(
+                upload_id,
+                size,
+                caption=caption,
+                location=location,
+                disable_comments=disable_comments,
+                is_sidecar=is_sidecar,
+            )
+
+    def post_video(
+        self,
+        video_data,
+        size,
+        duration,
+        thumbnail_data,
+        caption='',
+        title=None,
+        to_reel=False,
+        to_tv=False,
+        **kwargs
+    ):
         """
         Upload a video
 
@@ -589,7 +657,9 @@ class UploadEndpointsMixin(object):
         :param duration: in seconds
         :param thumbnail_data: byte string of the video thumbnail content
         :param caption:
+        :param title: to IGTV upload
         :param to_reel: post to reel as Story
+        :param to_reel: post to IGTV
         :param kwargs:
              - **location**: a dict of venue/location information, from :meth:`location_search`
                or :meth:`location_fb_search`
@@ -599,11 +669,14 @@ class UploadEndpointsMixin(object):
         """
         warnings.warn('This endpoint has not been fully tested.', UserWarning)
 
-        if not to_reel and not self.compatible_aspect_ratio(size):
-            raise ValueError('Incompatible aspect ratio.')
+        if to_tv and not title:
+            raise ValueError('You must provide a title for the IGTV media.')
 
-        if to_reel and not self.reel_compatible_aspect_ratio(size):
+        if (to_reel or to_tv) and not self.reel_compatible_aspect_ratio(size):
             raise ValueError('Incompatible reel aspect ratio.')
+
+        if not (to_reel or to_tv) and self.compatible_aspect_ratio(size):
+            raise ValueError('Incompatible aspect ratio.')
 
         if not 612 <= size[0] <= 1080:
             # range was determined through sampling of video uploads
@@ -612,18 +685,21 @@ class UploadEndpointsMixin(object):
         if duration < 3.0:
             raise ValueError('Duration is less than 3s.')
 
-        if not to_reel and duration > 60.0:
-            raise ValueError('Duration is more than 60s.')
-
         if to_reel and duration > 15.0:
             raise ValueError('Duration is more than 15s.')
+
+        if to_tv and duration > 3600.0:
+            raise ValueError('Duration is more than 1h.')
+
+        if not (to_reel or to_tv) and duration > 60.0:
+            raise ValueError('Duration is more than 60s.')
 
         max_file_len = 50 * 1024 * 1000
         try:
             video_file_len = len(video_data)
         except TypeError:
             video_file_len = get_file_size(video_data)
-        if video_file_len > max_file_len:
+        if not to_tv and video_file_len > max_file_len:
             raise ValueError('Video file is too big.')
 
         location = kwargs.pop('location', None)
@@ -633,7 +709,6 @@ class UploadEndpointsMixin(object):
 
         endpoint = 'upload/video/'
         upload_id = str(int(time.time() * 1000))
-
         width, height = size
         params = {
             '_csrftoken': self.csrftoken,
@@ -644,12 +719,17 @@ class UploadEndpointsMixin(object):
         if is_sidecar:
             params['is_sidecar'] = '1'
         else:
-            params.update({
-                'media_type': MediaTypes.VIDEO,
-                'upload_media_duration_ms': int(duration * 1000),
-                'upload_media_width': width,
-                'upload_media_height': height
-            })
+            params.update(
+                {
+                    'media_type': MediaTypes.VIDEO,
+                    'upload_media_duration_ms': int(duration * 1000),
+                    'upload_media_width': width,
+                    'upload_media_height': height,
+                }
+            )
+
+            if to_tv:
+                params.update({'is_igtv_video': 1})
 
         res = self._call_api(endpoint, params=params, unsigned=True)
         upload_url = res['video_upload_urls'][-1]['url']
@@ -665,21 +745,26 @@ class UploadEndpointsMixin(object):
             try:
                 # Prevent excessively small chunks
                 if video_file_len > 1 * 1024 * 1000:
-                    # max num of chunks = 4
-                    chunk_generator = max_chunk_count_generator(4, video_data)
-                else:
                     # max chunk size = 350,000 so that we'll always have
-                    # <4 chunks when it's <1mb
                     chunk_generator = max_chunk_size_generator(350000, video_data)
-
+                else:
+                    # max num of chunks = 4
+                    # <4 chunks when it's <1mb
+                    chunk_generator = max_chunk_count_generator(4, video_data)
                 for chunk, data in chunk_generator:
                     skip_chunk = False
                     for received_chunk in successful_chunk_ranges:
-                        if received_chunk[0] <= chunk.start and received_chunk[1] >= (chunk.end - 1):
+                        if received_chunk[0] <= chunk.start and received_chunk[1] >= (
+                            chunk.end - 1
+                        ):
                             skip_chunk = True
                             break
                     if skip_chunk:
-                        self.logger.debug('Skipped chunk: {0:d} - {1:d}'.format(chunk.start, chunk.end - 1))
+                        self.logger.debug(
+                            'Skipped chunk: {0:d} - {1:d}'.format(
+                                chunk.start, chunk.end - 1
+                            )
+                        )
                         continue
 
                     headers = self.default_headers
@@ -688,52 +773,92 @@ class UploadEndpointsMixin(object):
                     headers['Content-Disposition'] = 'attachment; filename="video.mov"'
                     headers['Session-ID'] = upload_id
                     if is_sidecar:
-                        headers['Cookie'] = 'sessionid=' + self.get_cookie_value('sessionid')
+                        headers['Cookie'] = 'sessionid=' + self.get_cookie_value(
+                            'sessionid'
+                        )
                     headers['job'] = upload_job
                     headers['Content-Length'] = chunk.length
                     headers['Content-Range'] = 'bytes {0:d}-{1:d}/{2:d}'.format(
-                        chunk.start, chunk.end - 1, video_file_len)
+                        chunk.start, chunk.end - 1, video_file_len
+                    )
                     self.logger.debug('POST {0!s}'.format(upload_url))
-                    self.logger.debug('Uploading Content-Range: {0!s}'.format(headers['Content-Range']))
+                    self.logger.debug(
+                        'Uploading Content-Range: {0!s}'.format(
+                            headers['Content-Range']
+                        )
+                    )
 
                     req = compat_urllib_request.Request(
-                        str(upload_url), data=data, headers=headers)
+                        str(upload_url), data=data, headers=headers
+                    )
 
                     try:
                         res = self.opener.open(req, timeout=self.timeout)
                         post_response = self._read_response(res)
-                        self.logger.debug('RESPONSE: {0:d} {1!s}'.format(res.code, post_response))
-                        if res.info().get('Content-Type', '').startswith('application/json'):
+                        self.logger.debug(
+                            'RESPONSE: {0:d} {1!s}'.format(res.code, post_response)
+                        )
+                        if (
+                            res.info()
+                            .get('Content-Type', '')
+                            .startswith('application/json')
+                        ):
                             # last chunk
                             upload_res = json.loads(post_response)
-                            configure_delay = int(upload_res.get('configure_delay_ms', 0)) / 1000.0
+                            configure_delay = (
+                                int(upload_res.get('configure_delay_ms', 0)) / 1000.0
+                            )
+                            time.sleep(10)
                             all_done = True
                             break
                         else:
                             successful_chunk_ranges = []
                             post_progress = post_response.split(',')
                             for progress in post_progress:
-                                mobj = re.match(r'(?P<start>[0-9]+)\-(?P<end>[0-9]+)/(?P<total>[0-9]+)', progress)
+                                mobj = re.match(
+                                    r'(?P<start>[0-9]+)\-(?P<end>[0-9]+)/(?P<total>[0-9]+)',
+                                    progress,
+                                )
                                 if mobj:
-                                    successful_chunk_ranges.append((int(mobj.group('start')), int(mobj.group('end'))))
+                                    successful_chunk_ranges.append(
+                                        (
+                                            int(mobj.group('start')),
+                                            int(mobj.group('end')),
+                                        )
+                                    )
                                 else:
                                     self.logger.error(
-                                        'Received unexpected chunk upload response: {0!s}'.format(post_response))
+                                        'Received unexpected chunk upload response: {0!s}'.format(
+                                            post_response
+                                        )
+                                    )
                                     raise ClientError(
                                         'Upload has failed due to unexpected upload response: {0!s}'.format(
-                                            post_response),
-                                        code=500)
+                                            post_response
+                                        ),
+                                        code=500,
+                                    )
 
                     except compat_urllib_error.HTTPError as e:
                         error_response = self._read_response(e)
-                        self.logger.debug('RESPONSE: {0:d} {1!s}'.format(e.code, error_response))
+                        self.logger.debug(
+                            'RESPONSE: {0:d} {1!s}'.format(e.code, error_response)
+                        )
                         ErrorHandler.process(e, error_response)
 
-                    except (SSLError, timeout, SocketError,
-                            compat_urllib_error.URLError,   # URLError is base of HTTPError
-                            compat_http_client.HTTPException) as connection_error:
-                        raise ClientConnectionError('{} {}'.format(
-                            connection_error.__class__.__name__, str(connection_error)))
+                    except (
+                        SSLError,
+                        timeout,
+                        SocketError,
+                        compat_urllib_error.URLError,  # URLError is base of HTTPError
+                        compat_http_client.HTTPException,
+                    ) as connection_error:
+                        raise ClientConnectionError(
+                            '{} {}'.format(
+                                connection_error.__class__.__name__,
+                                str(connection_error),
+                            )
+                        )
 
                 else:
                     # if not break due to completed chunks then continue with next chunk
@@ -742,12 +867,15 @@ class UploadEndpointsMixin(object):
 
             except ClientConnectionError as cce:
                 # connectivity prob, so let's just continue with another attempt
-                self.logger.warn('ClientConnectionError posting chunks: {}'.format(
-                    str(cce)))
+                self.logger.warn(
+                    'ClientConnectionError posting chunks: {}'.format(str(cce))
+                )
                 continue
 
         if not all_done:
-            raise ClientError('Upload has failed due to incomplete chunk uploads.', code=500)
+            raise ClientError(
+                'Upload has failed due to incomplete chunk uploads.', code=500
+            )
 
         if not configure_delay:
             configure_delay = 3
@@ -755,30 +883,48 @@ class UploadEndpointsMixin(object):
 
         for i in range(1, configure_retry_max + 1):
             try:
-                if not to_reel:
-                    result = self.configure_video(
-                        upload_id, size, duration, thumbnail_data, caption=caption, location=location,
-                        disable_comments=disable_comments, is_sidecar=is_sidecar)
-                else:
+                if to_reel:
                     result = self.configure_video_to_reel(
-                        upload_id, size, duration, thumbnail_data)
+                        upload_id, size, duration, thumbnail_data
+                    )
+                elif to_tv:
+                    result = self.configure_video_to_tv(
+                        upload_id, size, duration, thumbnail_data, title, caption
+                    )
+                else:
+                    result = self.configure_video(
+                        upload_id,
+                        size,
+                        duration,
+                        thumbnail_data,
+                        caption=caption,
+                        location=location,
+                        disable_comments=disable_comments,
+                        is_sidecar=is_sidecar,
+                    )
                 return result
             except ClientConnectionError as cce:
                 if i < configure_retry_max:
                     self.logger.warn(
                         'Retry configure after {0:f} seconds: {1:s}'.format(
-                            configure_delay, cce.msg))
+                            configure_delay, cce.msg
+                        )
+                    )
                     time.sleep(configure_delay)
                 else:
                     raise
             except ClientError as ce:
-                if (ce.code == 202 or ce.msg == 'Transcode timeout') and i < configure_retry_max:
-                    self.logger.warn('Retry configure after {0:f} seconds'.format(configure_delay))
+                if (
+                    ce.code == 202 or ce.msg == 'Transcode timeout'
+                ) and i < configure_retry_max:
+                    self.logger.warn(
+                        'Retry configure after {0:f} seconds'.format(configure_delay)
+                    )
                     time.sleep(configure_delay)
                 else:
                     raise
 
-    def post_photo_story(self, photo_data, size):
+    def post_photo_story(self, photo_data, size, **kwargs):
         """
         Upload a photo story
 
@@ -787,7 +933,7 @@ class UploadEndpointsMixin(object):
         :return:
         """
         return self.post_photo(
-            photo_data=photo_data, size=size, to_reel=True)
+            photo_data=photo_data, size=size, to_reel=True, **kwargs)
 
     def post_video_story(self, video_data, size, duration, thumbnail_data):
         """
@@ -800,8 +946,36 @@ class UploadEndpointsMixin(object):
         :return:
         """
         return self.post_video(
-            video_data=video_data, size=size, duration=duration,
-            thumbnail_data=thumbnail_data, to_reel=True)
+            video_data=video_data,
+            size=size,
+            duration=duration,
+            thumbnail_data=thumbnail_data,
+            to_reel=True,
+        )
+
+    def post_video_igtv(
+        self, video_data, size, duration, thumbnail_data, title, caption
+    ):
+        """
+        Upload a video IGTV
+
+        :param video_data: byte string or a file-like object of the video content
+        :param size: tuple of (width, height)
+        :param duration: in seconds
+        :param thumbnail_data: byte string of the video thumbnail content
+        :param title:
+        :param caption:
+        :return:
+        """
+        return self.post_video(
+            video_data=video_data,
+            size=size,
+            duration=duration,
+            thumbnail_data=thumbnail_data,
+            title=title,
+            caption=caption,
+            to_tv=True,
+        )
 
     def post_album(self, medias, caption='', location=None, **kwargs):
         """
@@ -831,7 +1005,9 @@ class UploadEndpointsMixin(object):
             if len(children_metadata) >= 10:
                 continue
             if media.get('type', '') not in ['image', 'video']:
-                raise ValueError('Invalid media type: {0!s}'.format(media.get('type', '')))
+                raise ValueError(
+                    'Invalid media type: {0!s}'.format(media.get('type', ''))
+                )
             if not media.get('data'):
                 raise ValueError('Data not specified.')
             if not media.get('size'):
@@ -841,8 +1017,7 @@ class UploadEndpointsMixin(object):
                     raise ValueError('Duration not specified.')
                 if not media.get('thumbnail'):
                     raise ValueError('Thumbnail not specified.')
-            aspect_ratio = (media['size'][0] * 1.0) / (media['size'][1] * 1.0)
-            if aspect_ratio > 1.0 or aspect_ratio < 1.0:
+            if not self.compatible_aspect_ratio(media['size']):
                 raise ValueError('Invalid media aspect ratio.')
 
             if media['type'] == 'video':
@@ -851,29 +1026,34 @@ class UploadEndpointsMixin(object):
                     size=media['size'],
                     duration=media['duration'],
                     thumbnail_data=media['thumbnail'],
-                    is_sidecar=True
+                    is_sidecar=True,
                 )
             else:
                 metadata = self.post_photo(
-                    photo_data=media['data'],
-                    size=media['size'],
-                    is_sidecar=True,
+                    photo_data=media['data'], size=media['size'], is_sidecar=True
                 )
                 if media.get('usertags'):
                     usertags = media['usertags']
-                    utags = {'in': [{'user_id': str(u['user_id']), 'position': u['position']} for u in usertags]}
+                    utags = {
+                        'in': [
+                            {'user_id': str(u['user_id']), 'position': u['position']}
+                            for u in usertags
+                        ]
+                    }
                     metadata['usertags'] = json.dumps(utags, separators=(',', ':'))
             children_metadata.append(metadata)
 
         if len(children_metadata) <= 1:
-            raise ValueError('Invalid number of media objects: {0:d}'.format(len(children_metadata)))
+            raise ValueError(
+                'Invalid number of media objects: {0:d}'.format(len(children_metadata))
+            )
 
         # configure as sidecar
         endpoint = 'media/configure_sidecar/'
         params = {
             'caption': caption,
             'client_sidecar_id': album_upload_id,
-            'children_metadata': children_metadata
+            'children_metadata': children_metadata,
         }
         if location:
             media_loc = self._validate_location(location)
@@ -893,5 +1073,7 @@ class UploadEndpointsMixin(object):
         params.update(self.authenticated_params)
         res = self._call_api(endpoint, params=params)
         if self.auto_patch and res.get('media'):
-            ClientCompatPatch.media(res.get('media'), drop_incompat_keys=self.drop_incompat_keys)
+            ClientCompatPatch.media(
+                res.get('media'), drop_incompat_keys=self.drop_incompat_keys
+            )
         return res

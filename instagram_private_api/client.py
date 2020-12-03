@@ -290,8 +290,8 @@ class Client(
             if not self.username or not self.password:
                 raise ClientLoginRequiredError('login_required', code=400)
             # if you get here, you have to call .login()
-
-        self.logger.debug('USERAGENT: {0!s}'.format(self.user_agent))
+        print('vars are: ', vars())
+        self.logger.error('USERAGENT: {0!s}'.format(self.user_agent))
         super(Client, self).__init__()
 
     @property
@@ -671,7 +671,12 @@ class Client(
     @property
     def mid(self):
         """The client's current mid value"""
-        return self.get_cookie_value('mid')
+        midvalue = None
+        try:
+            midvalue = self.get_cookie_value('mid')
+        except:
+            pass
+        return midvalue
     @property
     def default_headers(self):
         heds = {
