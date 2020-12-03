@@ -5,7 +5,7 @@ import re
 import email
 import imaplib
 
-from instagrapi import Client
+from instagram_private_api import Client
 
 CHALLENGE_EMAIL = ''
 CHALLENGE_PASSWORD = ''
@@ -55,7 +55,7 @@ def get_code_from_sms(username):
     return None
 
 
-def challenge_code_handler(username, choice):
+def challenge_code_handler(username, choice=1):
     if choice == 0:
         return get_code_from_sms(username)
     elif choice == 1:
