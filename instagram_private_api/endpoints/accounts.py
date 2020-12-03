@@ -2,7 +2,7 @@ import json
 
 from ..compat import (
     compat_urllib_request, compat_urllib_error,
-    compat_http_client
+    compat_http_client, compat_urllib_parse
 )
 from ..errors import (
     ErrorHandler, ClientError, ClientLoginError, ClientConnectionError
@@ -17,6 +17,7 @@ try:
 except NameError:  # Python 2:
     class ConnectionError(Exception):
         pass
+import traceback
 
 
 class AccountsEndpointsMixin(object):
